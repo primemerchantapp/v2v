@@ -151,6 +151,8 @@
 
       async startCall() {
         try {
+          console.log('Call started');
+
           // Show calling status
           document.getElementById('callNowUI').classList.add('hidden');
           document.getElementById('callInProgressUI').classList.remove('hidden');
@@ -158,8 +160,9 @@
           // Play intro audio
           const introAudio = new Audio('https://vep.aitekchat.com/inbound/assets/audio/intro.mp3');
           await introAudio.play();
+          console.log('Audio played');
 
-          // Connect WebSocket after audio finishes
+          // Connect WebSocket after 35 seconds
           setTimeout(async () => {
             await this.connectWebSocket();
             this.requestMicrophone();
@@ -194,6 +197,7 @@
           await this.client.connect(config);
           this.setupWebSocketHandlers();
           this.isConnected = true;
+          console.log('WebSocket connected');
         } catch (error) {
           console.error('WebSocket connection failed:', error);
           this.endCall();
@@ -219,6 +223,7 @@
       async requestMicrophone() {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log('Microphone access granted');
           this.startAudioRecording(stream);
         } catch (error) {
           console.error('Microphone access denied:', error);
@@ -237,6 +242,7 @@
           }
         });
         this.isRecording = true;
+        console.log('Audio recording started');
       }
 
       endCall() {
@@ -252,6 +258,7 @@
         // Reset UI
         document.getElementById('callNowUI').classList.remove('hidden');
         document.getElementById('callInProgressUI').classList.add('hidden');
+        console.log('Call ended');
       }
     }
 
