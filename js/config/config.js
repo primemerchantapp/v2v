@@ -18,7 +18,7 @@ export const CONFIG = {
 6. **Markdown Code Blocks**: \`\`\`language
    // Always wrap code in markdown
    \`\`\`
-7. **Search Integration**: Use Google CSE when needed: ${searchContext}
+7. **Search Integration**: Use Google CSE when needed.
 8. **Vision & Image Handling**: Use Together API for image analysis/generation.
 9. **Single-File Packaging**: Merge code into production-ready HTML when requested.
 10. **Clipboard Optimization**: Ensure code blocks are easily copyable with confirmation.
