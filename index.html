@@ -210,7 +210,8 @@
         </div>
     </div>
 
-    <script>
+    <!-- Include js/main.js as a module -->
+    <script type="module">
         const connectButton = document.getElementById('connect-button');
 
         connectButton.addEventListener('click', async () => {
@@ -231,5 +232,8 @@
             }
         });
     </script>
+
+    <!-- Reference to js/main.js -->
+    <script src="js/main.js" type="module"></script>
 </body>
 </html>
