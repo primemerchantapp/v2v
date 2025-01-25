@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Call Simulation</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    /* Global Styles */
+    body {
+      background-color: #1a1a1a;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    /* Logo */
+    .logo {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 20px;
+    }
+
+    /* Call Now Button */
+    .call-button {
+      width: 200px;
+      padding: 16px;
+      background-color: #32cd32; /* Green */
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+
+    .call-button:hover {
+      background-color: #28a428; /* Darker green */
+      transform: scale(1.05);
+    }
+
+    /* End Call Button */
+    .end-call-button {
+      width: 200px;
+      padding: 16px;
+      background-color: #ff4444; /* Red */
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+      margin-top: 20px;
+    }
+
+    .end-call-button:hover {
+      background-color: #cc0000; /* Darker red */
+      transform: scale(1.05);
+    }
+
+    /* Call Status Section */
+    .call-status {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 20px;
+    }
+
+    .calling-dots span {
+      animation: blink 1.4s infinite;
+    }
+
+    .calling-dots span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .calling-dots span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Hidden State */
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Logo -->
+  <img src="https://vep.aitekchat.com/inbound/assets/images/logo.png" alt="Logo" class="logo">
+
+  <!-- Call Now UI -->
+  <div id="callNowUI">
+    <button id="callButton" class="call-button">
+      Call Now
+    </button>
+  </div>
+
+  <!-- Call in Progress UI -->
+  <div id="callInProgressUI" class="hidden">
+    <div class="call-status">
+      <div id="callingStatus" class="calling-dots">
+        Calling<span>.</span><span>.</span><span>.</span>
+      </div>
+      <div id="microphoneStatus" class="hidden">
+        Requesting microphone access...
+      </div>
+      <div id="aiStatus" class="hidden">
+        AI is speaking...
+      </div>
+    </div>
+    <button id="endCallButton" class="end-call-button">
+      End Call
+    </button>
+  </div>
+
+  <!-- Audio for Call Simulation -->
+  <audio id="callAudio" src="https://vep.aitekchat.com/inbound/assets/audio/intro.mp3"></audio>
+
+  <script type="module">
+    // Import necessary modules
+    import { MultimodalLiveClient } from './core/websocket-client.js';
+    import { AudioRecorder } from './audio/audio-recorder.js';
+    import { CONFIG } from './config/config.js';
+
+    class VepClient {
+      constructor() {
+        this.client = new MultimodalLiveClient({ apiKey: CONFIG.API.KEY });
+        this.audioRecorder = null;
+        this.isConnected = false;
+        this.isRecording = false;
+
+        this.initializeEventListeners();
+      }
+
+      initializeEventListeners() {
+        // Call Controls
+        document.getElementById('callButton').addEventListener('click', () => this.startCall());
+        document.getElementById('endCallButton').addEventListener('click', () => this.endCall());
+      }
+
+      async startCall() {
+        try {
+          // Show calling status
+          document.getElementById('callNowUI').classList.add('hidden');
+          document.getElementById('callInProgressUI').classList.remove('hidden');
+
+          // Play intro audio
+          const introAudio = new Audio('https://vep.aitekchat.com/inbound/assets/audio/intro.mp3');
+          await introAudio.play();
+
+          // Connect WebSocket after audio finishes
+          setTimeout(async () => {
+            await this.connectWebSocket();
+            this.requestMicrophone();
+          }, 35000); // 35 seconds
+        } catch (error) {
+          console.error('Call initialization failed:', error);
+          this.endCall();
+        }
+      }
+
+      async connectWebSocket() {
+        const config = {
+          model: CONFIG.API.MODEL_NAME,
+          generationConfig: {
+            responseModalities: "audio",
+            speechConfig: {
+              voiceConfig: { 
+                prebuiltVoiceConfig: { 
+                  voiceName: CONFIG.VOICE.NAME
+                }
+              }
+            },
+          },
+          systemInstruction: {
+            parts: [{
+              text: CONFIG.SYSTEM_INSTRUCTION.content
+            }],
+          }
+        };
+
+        try {
+          await this.client.connect(config);
+          this.setupWebSocketHandlers();
+          this.isConnected = true;
+        } catch (error) {
+          console.error('WebSocket connection failed:', error);
+          this.endCall();
+        }
+      }
+
+      setupWebSocketHandlers() {
+        this.client.on('content', (data) => {
+          if (data.modelTurn) {
+            const text = data.modelTurn.parts.map(part => part.text).join('');
+            if (text) {
+              console.log(`AI: ${text}`);
+            }
+          }
+        });
+
+        this.client.on('error', (error) => {
+          console.error(`WebSocket error: ${error.message}`);
+          this.endCall();
+        });
+      }
+
+      async requestMicrophone() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          this.startAudioRecording(stream);
+        } catch (error) {
+          console.error('Microphone access denied:', error);
+          this.endCall();
+        }
+      }
+
+      startAudioRecording(stream) {
+        this.audioRecorder = new AudioRecorder();
+        this.audioRecorder.start((base64Data) => {
+          if (this.isConnected) {
+            this.client.sendRealtimeInput([{
+              mimeType: "audio/pcm;rate=16000",
+              data: base64Data
+            }]);
+          }
+        });
+        this.isRecording = true;
+      }
+
+      endCall() {
+        if (this.isConnected) {
+          this.client.disconnect();
+          this.isConnected = false;
+        }
+        if (this.isRecording && this.audioRecorder) {
+          this.audioRecorder.stop();
+          this.isRecording = false;
+        }
+
+        // Reset UI
+        document.getElementById('callNowUI').classList.remove('hidden');
+        document.getElementById('callInProgressUI').classList.add('hidden');
+      }
+    }
+
+    // Initialize the client when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      window.vepClient = new VepClient();
+    });
+  </script>
+</body>
+</html>
